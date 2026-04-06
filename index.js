@@ -1,0 +1,31 @@
+const express = require('express');
+const cors = require('cors');
+const app = express();
+const connectDB = require('./config/db');
+const dotenv = require('dotenv');
+const cookieParser = require('cookie-parser');
+
+dotenv.config(); // Load environment variables from .env file
+
+// Connect to MongoDB
+connectDB();
+
+// Middleware
+app.use(cors(
+  {
+    origin: process.env.CLIENT_URL, // Allow requests from this origin
+    credentials: true // Allow credentials (cookies, authorization headers, etc.)
+  }
+));
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// Routes
+app.use('/api/auth', require('./routes/authRoutes'));
+
+const port = process.env.PORT || 8080;
+
+// Start the server
+app.listen(port, () => {
+  console.log(`Backend server is running on http://localhost:${port}`);
+});
