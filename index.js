@@ -11,6 +11,7 @@ dotenv.config(); // Load environment variables from .env file
 connectDB();
 
 // Middleware
+app.use(cookieParser());// Parse cookies
 app.use(cors(
   {
     origin: process.env.CLIENT_URL, // Allow requests from this origin
