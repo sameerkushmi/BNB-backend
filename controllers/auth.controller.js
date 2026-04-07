@@ -81,7 +81,10 @@ exports.register = async (req, res) => {
         maxAge: 7 * 24 * 60 * 60 * 1000,
       })
       .status(201)
-      .json({ message: "Account created successfully!" });
+      .json({
+        message: "Account created successfully!",
+        user
+      });
   } catch (error) {
     console.log("Registration error:", error);
     res.status(500).json({ message: error.message });
@@ -119,6 +122,25 @@ exports.login = async (req, res) => {
       expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
     });
 
+    const payload = {
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      phone: user.phone,
+      role: user.role,
+      avatar: user.avatar,
+      status: user.status,
+      lastLogin: user.lastLogin,
+      passwordChangedAt: user.passwordChangedAt,
+      addresses: user.addresses,
+      wishlist: user.wishlist,
+      cart: user.cart,
+      isEmailVerified: user.isEmailVerified,
+      isPhoneVerified: user.isPhoneVerified,
+      updatedAt: user.updatedAt,
+      createdAt: user.createdAt,
+    }
+
     res
       .cookie("accessToken", accessToken, {
         ...cookieOptions,
@@ -128,7 +150,10 @@ exports.login = async (req, res) => {
         ...cookieOptions,
         maxAge: 7 * 24 * 60 * 60 * 1000,
       })
-      .json({ message: "Login successful" });
+      .json({
+        message: "Login successful",
+        user: payload
+      });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
