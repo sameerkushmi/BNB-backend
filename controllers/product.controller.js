@@ -24,7 +24,7 @@ function extractPublicId(url) {
 /* 📦 CREATE PRODUCT */
 exports.createProduct = async (req, res) => {
     try {
-        const { name, description, price, category, stock } = req.body;
+        const { name, description, price, weight, category, stock } = req.body;
 
         // 🖼 Images from Cloudinary (store public_id for deletion later)
         const images = (req.files || []).map(file => ({
@@ -38,6 +38,7 @@ exports.createProduct = async (req, res) => {
             slug: slugify(name, { lower: true }),
             description,
             price,
+            weight,
             category,
             stock,
             images,

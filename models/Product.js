@@ -24,18 +24,6 @@ const reviewSchema = new Schema(
     { timestamps: true }
 );
 
-/* 🎨 Variant Schema */
-const variantSchema = new Schema(
-    {
-        name: String, // e.g. "Size", "Color"
-        value: String, // e.g. "Large", "Red"
-        price: Number,
-        stock: { type: Number, default: 0 },
-        sku: String,
-    },
-    { _id: false }
-);
-
 /* 📦 Main Product Schema */
 const productSchema = new Schema(
     {
@@ -88,8 +76,12 @@ const productSchema = new Schema(
             default: 0,
         },
 
-        // 🎨 Variants (optional)
-        variants: [variantSchema],
+        // wieght
+        weight: {
+            type: Number,
+            required: true,
+            min: 0,
+        },
 
         // 🖼 Images
         images: {
