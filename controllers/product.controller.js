@@ -24,7 +24,18 @@ function extractPublicId(url) {
 /* 📦 CREATE PRODUCT */
 exports.createProduct = async (req, res) => {
     try {
-        const { name, description, price, weight, category, stock } = req.body;
+        const {
+            name,
+            brand,
+            description,
+            role,
+            price,
+            weight,
+            category,
+            stock,
+            isFeatured,
+            status
+        } = req.body;
 
         // 🖼 Images from Cloudinary (store public_id for deletion later)
         const images = (req.files || []).map(file => ({
@@ -36,13 +47,16 @@ exports.createProduct = async (req, res) => {
         const product = await Product.create({
             name,
             slug: slugify(name, { lower: true }),
+            brand,
             description,
+            role,
             price,
             weight,
             category,
             stock,
             images,
             status: "published",
+            isFeatured
         });
 
         res.status(201).json({
@@ -55,14 +69,21 @@ exports.createProduct = async (req, res) => {
     }
 };
 
-
 /* 📥 GET ALL PRODUCTS */
 exports.getProducts = async (req, res) => {
     try {
-        const { search, page = 1, limit = 10 } = req.query;
+        const { search, page = 1, limit = 10, admin, status } = req.query;
 
         const query = {};
 
+        // 🔐 Public vs Admin
+        if (!admin) {
+            query.status = "published"; // public only
+        } else if (status) {
+            query.status = status; // admin can filter (draft/published/archived)
+        }
+
+        // 🔍 Search
         if (search) {
             query.name = { $regex: search, $options: "i" };
         }
@@ -86,7 +107,6 @@ exports.getProducts = async (req, res) => {
     }
 };
 
-
 /* 📄 GET SINGLE PRODUCT */
 exports.getProductById = async (req, res) => {
     try {
@@ -102,32 +122,59 @@ exports.getProductById = async (req, res) => {
     }
 };
 
+// GET PRODUCTS BY SLUG
+exports.getProductBySlug = async (req, res) => {
+    try {
+        const product = await Product.findOne({ slug: req.params.slug })
+
+        if (!product) return res.status(404).json({ message: "Product not found" })
+
+        res.json(product)
+    } catch (error) {
+        res.status(500).json({ message: error.message })
+    }
+}
 
 /* ✏️ UPDATE PRODUCT */
 exports.updateProduct = async (req, res) => {
     try {
-        const product = await Product.findById(req.params.id);
-
-        if (!product) {
-            return res.status(404).json({ message: "Product not found" });
+        if (!req.body || Object.keys(req.body).length === 0) {
+            return res.status(400).json({ message: "Request body is required" });
         }
 
-        // 🖼 Replace images if new files uploaded (delete old Cloudinary images)
+        const product = await Product.findById(req.params.id);
+        if (!product) return res.status(404).json({ message: "Product not found" });
+
+        // 1️⃣ Handle fields except images and reviews
+        const fieldsToUpdate = { ...req.body };
+        delete fieldsToUpdate.images;
+        delete fieldsToUpdate.reviews;
+
+        Object.keys(fieldsToUpdate).forEach(key => {
+            // Convert numeric fields from string if needed
+            if (["price", "discountPrice", "weight", "stock"].includes(key)) {
+                product[key] = Number(fieldsToUpdate[key]);
+            } else if (key === "isFeatured") {
+                product[key] = fieldsToUpdate[key] === "true" || fieldsToUpdate[key] === true;
+            } else {
+                product[key] = fieldsToUpdate[key];
+            }
+        });
+
+        // 2️⃣ Update slug if name changed
+        if (fieldsToUpdate.name) {
+            product.slug = slugify(fieldsToUpdate.name, { lower: true });
+        }
+
+        // 3️⃣ Handle images if new files uploaded
         if (req.files && req.files.length > 0) {
-            // delete previous images from Cloudinary
+            // Delete old images from Cloudinary
             for (const img of product.images || []) {
                 const publicId = img.public_id || extractPublicId(img.url);
-                if (publicId) {
-                    try {
-                        await cloudinary.uploader.destroy(publicId);
-                    } catch (err) {
-                        // log and continue
-                        console.warn('Failed to delete Cloudinary image:', publicId, err.message || err);
-                    }
-                }
+                if (publicId) await cloudinary.uploader.destroy(publicId);
             }
 
-            // set new images
+            // Set new images
             product.images = req.files.map(file => ({
                 url: file.path,
                 alt: product.name,
@@ -135,25 +182,14 @@ exports.updateProduct = async (req, res) => {
             }));
         }
 
-        // 🧠 Update fields
-        Object.assign(product, req.body);
-
-        // 🔗 Update slug if name changed
-        if (req.body.name) {
-            product.slug = slugify(req.body.name, { lower: true });
-        }
-
         await product.save();
 
-        res.json({
-            success: true,
-            product,
-        });
+        res.json({ success: true, product });
     } catch (error) {
+        console.error(error);
         res.status(500).json({ message: error.message });
     }
 };
-
 
 /* ❌ DELETE PRODUCT */
 exports.deleteProduct = async (req, res) => {

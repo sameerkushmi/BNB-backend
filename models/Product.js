@@ -44,6 +44,11 @@ const productSchema = new Schema(
             type: String,
             required: true,
         },
+        role: {
+            type: String,
+            enum: ["customer", "merchant"],
+            default: "customer",
+        },
 
         // 💰 Pricing
         price: {
@@ -58,8 +63,7 @@ const productSchema = new Schema(
 
         // 📂 Category
         category: {
-            type: Schema.Types.ObjectId,
-            ref: "Category",
+            type: String,
             required: true,
         },
 
@@ -104,10 +108,6 @@ const productSchema = new Schema(
         // 💬 Reviews
         reviews: [reviewSchema],
 
-        // 🔍 SEO
-        metaTitle: String,
-        metaDescription: String,
-
         // 🚀 Status
         status: {
             type: String,
@@ -142,11 +142,10 @@ productSchema.index({ price: 1 });
 //  🧠 Middleware
 
 // 🔗 Auto slug generate
-productSchema.pre("save", function (next) {
+productSchema.pre("save", function () {
     if (this.isModified("name")) {
         this.slug = slugify(this.name, { lower: true });
     }
-    next();
 });
 
 productSchema.virtual("isLowStock").get(function () {
@@ -156,12 +155,6 @@ productSchema.virtual("isLowStock").get(function () {
 productSchema.virtual("finalPrice").get(function () {
     return this.discountPrice || this.price;
 });
-
-productSchema.pre(/^find/, function (next) {
-    this.find({ status: "published" });
-    next();
-});
-
 
 //  📤 Model Export
 module.exports = mongoose.model("Product", productSchema);
