@@ -107,6 +107,18 @@ exports.getProducts = async (req, res) => {
     }
 };
 
+// GET FEATURED PRODUCTS 
+exports.getFeaturedProducts = async (req, res) => {
+    try {
+        const products = await Product.find({ isFeatured: true, status: "published" }).limit(8);
+
+        res.json({ success: true, products });
+
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+}
+
 /* 📄 GET SINGLE PRODUCT */
 exports.getProductById = async (req, res) => {
     try {
