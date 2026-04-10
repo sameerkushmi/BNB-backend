@@ -26,9 +26,10 @@ exports.createOrder = async (req, res) => {
             });
         }
 
-        // Transform cart items to order items (product -> productId)
-        const orderItems = items.map(item => ({
-            productId: item.product || item.productId, // handle both formats
+        // Transform cart items to order items (support multiple client formats)
+        const orderItems = items.map((item) => ({
+            // Accept `product`, `productId`, `id`, or `_id` from various clients
+            productId: item.product || item.productId || item.id || item._id,
             name: item.name,
             image: item.image,
             price: item.price,
