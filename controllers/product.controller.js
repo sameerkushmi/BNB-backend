@@ -1,6 +1,7 @@
 const Product = require("../models/Product.js");
 const slugify = require("slugify");
 const cloudinary = require("../config/cloudinary.js");
+const mongoose = require('mongoose')
 
 // Fallback extractor for public_id from a Cloudinary URL
 function extractPublicId(url) {
@@ -152,6 +153,74 @@ exports.getFeaturedProducts = async (req, res) => {
         res.status(500).json({ message: error.message });
     }
 }
+
+// GET RELATED PRODUCTS
+exports.getRelatedProducts = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { limit = 4 } = req.query;
+
+        // ✅ 1. Validate ID
+        if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid or missing product ID",
+            });
+        }
+
+        // ✅ 2. Find product
+        const product = await Product.findById(id);
+
+        if (!product) {
+            return res.status(404).json({
+                success: false,
+                message: "Product not found",
+            });
+        }
+
+        // ✅ 3. Query
+        const query = {
+            _id: { $ne: product._id },
+            category: product.category,
+            isActive: true,
+        };
+
+        if (product.role) {
+            query.role = product.role;
+        }
+
+        // ✅ 4. Fetch related
+        const relatedProducts = await Product.aggregate([
+            { $match: query },
+            { $sample: { size: Number(limit) } },
+        ]);
+
+        // If no related products, fetch random products
+        if (relatedProducts.length === 0) {
+            const fallback = await Product.aggregate([
+                { $match: { _id: { $ne: product._id } } },
+                { $sample: { size: Number(limit) } },
+            ]);
+
+            return res.json({
+                success: true,
+                products: fallback,
+            });
+        }
+
+        res.status(200).json({
+            success: true,
+            products: relatedProducts,
+        });
+
+    } catch (error) {
+        console.error("getRelatedProducts error:", error);
+        res.status(500).json({
+            success: false,
+            message: "Server error",
+        });
+    }
+};
 
 /* 📄 GET SINGLE PRODUCT */
 exports.getProductById = async (req, res) => {
