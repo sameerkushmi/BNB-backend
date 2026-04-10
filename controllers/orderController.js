@@ -45,7 +45,7 @@ exports.createOrder = async (req, res) => {
             totalAmount,
             paymentMethod,
             paymentStatus: paymentMethod === "COD" ? "PENDING" : "PENDING",
-            orderStatus: "PENDING",
+            orderStatus: "PROCESSING",
         });
 
         // clear cart only if cart exists
