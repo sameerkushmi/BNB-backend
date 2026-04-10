@@ -72,15 +72,24 @@ exports.createProduct = async (req, res) => {
 /* 📥 GET ALL PRODUCTS */
 exports.getProducts = async (req, res) => {
     try {
-        const { search, page = 1, limit = 10, admin, status } = req.query;
+        const {
+            search,
+            page = 1,
+            limit = 10,
+            admin,
+            status,
+            category,
+            role,
+            priceSort, // "high" | "low"
+        } = req.query;
 
         const query = {};
 
         // 🔐 Public vs Admin
         if (!admin) {
-            query.status = "published"; // public only
-        } else if (status) {
-            query.status = status; // admin can filter (draft/published/archived)
+            query.status = "published";
+        } else if (status && status !== "all") {
+            query.status = status;
         }
 
         // 🔍 Search
@@ -88,10 +97,34 @@ exports.getProducts = async (req, res) => {
             query.name = { $regex: search, $options: "i" };
         }
 
+        // 📦 Category filter
+        if (category && category !== "all") {
+            query.category = { $in: category.split(",") };
+            // assuming field name = category (green/herbal/black)
+        }
+
+        // 👤 Role filter (who can access / belongs to)
+        if (role && role !== "all") {
+            query.role = role;
+            // assuming field name = role (customer/merchant)
+        }
+
+        // 💰 Sorting
+        let sortOption = { createdAt: -1 }; // default latest
+
+        if (priceSort === "high") {
+            sortOption = { price: -1 };
+        } else if (priceSort === "low") {
+            sortOption = { price: 1 };
+        }
+
+        // 📄 Pagination
+        const skip = (Number(page) - 1) * Number(limit);
+
         const products = await Product.find(query)
-            .skip((page - 1) * limit)
-            .limit(Number(limit))
-            .sort({ createdAt: -1 });
+            .sort(sortOption)
+            .skip(skip)
+            .limit(Number(limit));
 
         const total = await Product.countDocuments(query);
 
@@ -102,6 +135,7 @@ exports.getProducts = async (req, res) => {
             pages: Math.ceil(total / limit),
             products,
         });
+
     } catch (error) {
         res.status(500).json({ message: error.message });
     }

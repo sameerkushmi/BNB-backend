@@ -16,7 +16,7 @@ const { protect } = require('../middlewares/auth.middleware.js')
 const { adminProtect } = require('../middlewares/admin.middleware.js')
 
 router.get("/get-all", getProducts);
-router.get('/get-by-slug', getProductBySlug)
+router.get('/get-by-slug/:slug', getProductBySlug)
 router.get('/get-featured', getFeaturedProducts)
 
 // admin routes
