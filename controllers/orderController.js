@@ -89,6 +89,40 @@ exports.getMyOrders = async (req, res) => {
     }
 };
 
+// GET /api/orders/admin
+exports.getAllOrders = async (req, res) => {
+    try {
+        const page = Number(req.query.page) || 1;
+        const limit = Number(req.query.limit) || 10;
+        const search = req.query.search || "";
+
+        const query = {
+            $or: [
+                { _id: search.match(/^[0-9a-fA-F]{24}$/) ? search : null },
+                { "shippingDetails.fullName": { $regex: search, $options: "i" } },
+                { "shippingDetails.phone": { $regex: search, $options: "i" } },
+            ].filter(Boolean),
+        };
+
+        const orders = await Order.find(search ? query : {})
+            .sort({ createdAt: -1 })
+            .skip((page - 1) * limit)
+            .limit(limit);
+
+        const total = await Order.countDocuments(search ? query : {});
+
+        res.json({
+            orders,
+            total,
+            page,
+            pages: Math.ceil(total / limit),
+        });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: "Server error" });
+    }
+};
+
 exports.getOrderById = async (req, res) => {
     try {
         const order = await Order.findById(req.params.id)
