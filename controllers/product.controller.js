@@ -154,6 +154,32 @@ exports.getFeaturedProducts = async (req, res) => {
     }
 }
 
+// GET TOTAL STOCK
+exports.getTotalStock = async (req, res) => {
+    try {
+        const result = await Product.aggregate([
+            {
+                $group: {
+                    _id: null,
+                    totalStock: { $sum: "$stock" }
+                }
+            }
+        ]);
+
+        res.status(200).json({
+            success: true,
+            totalStock: result[0]?.totalStock || 0,
+        });
+
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: "Error fetching total stock",
+            error: error.message,
+        });
+    }
+};
+
 // GET RELATED PRODUCTS
 exports.getRelatedProducts = async (req, res) => {
     try {

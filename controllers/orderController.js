@@ -1,8 +1,6 @@
-// controllers/orderController.js
-
 const Order = require("../models/Order");
 const Cart = require("../models/Cart");
-
+const Product = require('../models/Product')
 // ===============================
 // CREATE ORDER
 // ===============================
@@ -159,12 +157,30 @@ exports.updateOrderStatus = async (req, res) => {
             });
         }
 
+        // ❗ Prevent double stock reduction
+        const wasDelivered = order.orderStatus === "DELIVERED";
+
         order.orderStatus = status;
 
         if (status === "DELIVERED") {
             order.isPaid = true;
             order.paymentStatus = "PAID";
             order.paidAt = new Date();
+
+            // ✅ Reduce stock only ONCE
+            if (!wasDelivered) {
+                for (const item of order.items) {
+                    await Product.findByIdAndUpdate(
+                        item.productId,
+                        {
+                            $inc: {
+                                stock: -item.quantity,
+                                sold: item.quantity,
+                            },
+                        }
+                    );
+                }
+            }
         }
 
         await order.save();
