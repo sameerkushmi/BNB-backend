@@ -109,6 +109,9 @@ exports.login = async (req, res) => {
     if (!user)
       return res.status(400).json({ message: "Invalid credentials" });
 
+    if (user.isBlocked)
+      return res.status(403).json({ message: "Your account has been blocked" });
+
     const isMatch = await user.comparePassword(password);
     if (!isMatch)
       return res.status(400).json({ message: "Invalid credentials" });

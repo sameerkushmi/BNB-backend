@@ -37,6 +37,7 @@ const userSchema = new mongoose.Schema(
             type: String,
             unique: true,
             sparse: true, // allows null but unique if present
+            required: true,
         },
 
         password: {
@@ -94,6 +95,11 @@ const userSchema = new mongoose.Schema(
             type: String,
             enum: ["active", "suspended", "deleted"],
             default: "active",
+        },
+
+        isBlocked: {
+            type: Boolean,
+            default: false,
         },
 
         lastLogin: {
