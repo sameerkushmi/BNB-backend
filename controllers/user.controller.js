@@ -1,4 +1,5 @@
 const User = require('../models/User')
+const cloudinary = require("../config/cloudinary.js");
 
 exports.getMe = async (req, res) => {
     try {
@@ -83,8 +84,14 @@ exports.updateUser = async (req, res) => {
 // 🔥 Update Profile Controller
 exports.updateProfile = async (req, res) => {
     try {
-        const userId = req.user.id;
+        if (!req.user || !req.user.id) {
+            return res.status(401).json({
+                success: false,
+                message: "Unauthorized",
+            });
+        }
 
+        const userId = req.user.id;
         const { name, phone } = req.body;
 
         const user = await User.findById(userId);
@@ -100,14 +107,19 @@ exports.updateProfile = async (req, res) => {
         if (name) user.name = name;
         if (phone) user.phone = phone;
 
-        // If file uploaded (Multer)
+        // 🔥 If new image uploaded
         if (req.file) {
-            // Save file path or URL
+            // ✅ Delete old image from Cloudinary
+            if (user.avatar && user.avatar.public_id) {
+                await cloudinary.uploader.destroy(user.avatar.public_id);
+            }
+
+            // ✅ Save new image
             user.avatar = {
                 url: req.file.path,
-                alt: req.product.name,
+                alt: user.name || "User Avatar",
                 public_id: req.file.filename
-            }
+            };
         }
 
         await user.save();
@@ -134,6 +146,10 @@ exports.deleteUser = async (req, res) => {
 
         const user = await User.findById(id);
         if (!user) return res.status(404).json({ message: "User not found" });
+
+        if (user.avatar && user.avatar.public_id) {
+            await cloudinary.uploader.destroy(user.avatar.public_id);
+        }
 
         await user.deleteOne()
 
