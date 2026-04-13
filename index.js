@@ -29,6 +29,7 @@ app.use('/api/cart', require('./routes/cartRoutes'));
 app.use('/api/orders', require('./routes/orderRoutes'));
 app.use('/api/subscribers', require('./routes/subscriberRoutes'));
 app.use('/api/admin', require('./routes/adminRoutes'));
+app.use('/api/address', require('./routes/addressRoutes')); 
 
 const port = process.env.PORT || 8080;
 

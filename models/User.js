@@ -10,7 +10,7 @@ const addressSchema = new mongoose.Schema(
         postalCode: { type: String },
         isDefault: { type: Boolean, default: false },
     },
-    { _id: false }
+    { timestamps: true }
 );
 
 const userSchema = new mongoose.Schema(
@@ -64,27 +64,6 @@ const userSchema = new mongoose.Schema(
         },
 
         addresses: [addressSchema],
-
-        wishlist: [
-            {
-                type: mongoose.Schema.Types.ObjectId,
-                ref: "Product",
-            },
-        ],
-
-        cart: [
-            {
-                product: {
-                    type: mongoose.Schema.Types.ObjectId,
-                    ref: "Product",
-                },
-                quantity: {
-                    type: Number,
-                    default: 1,
-                    min: 1,
-                },
-            },
-        ],
 
         avatar: {
             url: { type: String, required: true },
