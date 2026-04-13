@@ -1,6 +1,24 @@
 const User = require('../models/User')
 const cloudinary = require("../config/cloudinary.js");
 
+const checkPasswordStrength = (password) => {
+    let score = 0;
+
+    if (!password) return { score: 0, label: "Empty" };
+
+    if (password.length >= 8) score++;
+    if (/[A-Z]/.test(password)) score++;
+    if (/[0-9]/.test(password)) score++;
+    if (/[^A-Za-z0-9]/.test(password)) score++;
+
+    const labels = ["Weak", "Fair", "Good", "Strong"];
+
+    return {
+        score,
+        label: labels[Math.max(score - 1, 0)] || "Weak",
+    };
+};
+
 exports.getMe = async (req, res) => {
     try {
         const user = await User.findById(req.user.id).select('-password');
@@ -173,3 +191,63 @@ exports.getUserById = async (req, res) => {
         res.status(500).json({ message: "Server Error" });
     }
 }
+
+// 🔹 Change Password
+exports.changePassword = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { currentPassword, newPassword, confirmPassword } = req.body;
+
+        // ❗ check confirm password
+        if (newPassword !== confirmPassword) {
+            return res.status(400).json({ message: "Passwords do not match" });
+        }
+
+        // 🔥 PASSWORD STRENGTH CHECK (NEW)
+        const strength = checkPasswordStrength(newPassword);
+
+        if (strength.score < 4) {
+            return res.status(400).json({
+                message: "Password is too weak. Use a strong password.",
+                strength,
+            });
+        }
+
+        const user = await User.findById(userId).select("+password");
+
+        if (!user) {
+            return res.status(404).json({ message: "User not found" });
+        }
+
+        // ✅ check current password
+        const isMatch = await user.comparePassword(currentPassword);
+
+        if (!isMatch) {
+            return res.status(400).json({ message: "Current password is incorrect" });
+        }
+
+        // ❌ prevent reuse
+        const isSame = await user.comparePassword(newPassword);
+        if (isSame) {
+            return res.status(400).json({
+                message: "New password cannot be same as old password",
+            });
+        }
+
+        // 🔐 set new password (will be hashed via pre-save hook)
+        user.password = newPassword;
+
+        // 📌 track password change time
+        user.passwordChangedAt = Date.now();
+
+        await user.save();
+
+        return res.json({
+            message: "Password changed successfully",
+        });
+
+    } catch (error) {
+        console.error("Change Password Error:", error);
+        return res.status(500).json({ message: "Server error" });
+    }
+};
