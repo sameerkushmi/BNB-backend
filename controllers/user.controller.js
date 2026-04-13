@@ -80,6 +80,54 @@ exports.updateUser = async (req, res) => {
     }
 };
 
+// 🔥 Update Profile Controller
+exports.updateProfile = async (req, res) => {
+    try {
+        const userId = req.user.id;
+
+        const { name, phone } = req.body;
+
+        const user = await User.findById(userId);
+
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: "User not found",
+            });
+        }
+
+        // Update basic fields
+        if (name) user.name = name;
+        if (phone) user.phone = phone;
+
+        // If file uploaded (Multer)
+        if (req.file) {
+            // Save file path or URL
+            user.avatar = {
+                url: req.file.path,
+                alt: req.product.name,
+                public_id: req.file.filename
+            }
+        }
+
+        await user.save();
+
+        return res.status(200).json({
+            success: true,
+            message: "Profile updated successfully",
+            user,
+        });
+
+    } catch (error) {
+        console.error("Update Profile Error:", error);
+
+        return res.status(500).json({
+            success: false,
+            message: "Server error while updating profile",
+        });
+    }
+};
+
 exports.deleteUser = async (req, res) => {
     try {
         const { id } = req.params;

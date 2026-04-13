@@ -35,7 +35,6 @@ exports.createProduct = async (req, res) => {
             category,
             stock,
             isFeatured,
-            status
         } = req.body;
 
         // 🖼 Images from Cloudinary (store public_id for deletion later)

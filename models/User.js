@@ -87,8 +87,9 @@ const userSchema = new mongoose.Schema(
         ],
 
         avatar: {
-            type: String,
-            default: "",
+            url: { type: String, required: true },
+            alt: { type: String },
+            public_id: { type: String },
         },
 
         isBlocked: {
