@@ -103,6 +103,7 @@ exports.getAllOrders = async (req, res) => {
         };
 
         const orders = await Order.find(search ? query : {})
+            .populate("user", "name email")
             .sort({ createdAt: -1 })
             .skip((page - 1) * limit)
             .limit(limit);
