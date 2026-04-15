@@ -12,12 +12,12 @@ connectDB();
 
 // Middleware
 app.use(cookieParser());// Parse cookies
-// app.use(cors(
-//   {
-//     origin: process.env.CLIENT_URL, // Allow requests from this origin
-//     credentials: true // Allow credentials (cookies, authorization headers, etc.)
-//   }
-// ));
+app.use(cors(
+  {
+    origin: process.env.CLIENT_URL, // Allow requests from this origin
+    credentials: true // Allow credentials (cookies, authorization headers, etc.)
+  }
+));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
