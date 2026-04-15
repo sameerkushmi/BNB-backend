@@ -31,6 +31,7 @@ app.use('/api/subscribers', require('./routes/subscriberRoutes'));
 app.use('/api/admin', require('./routes/adminRoutes'));
 app.use('/api/address', require('./routes/addressRoutes'));
 app.use('/api/wishlist', require('./routes/wishlistRoutes'));
+app.use('/api/reviews', require('./routes/reviewRoutes'));
 
 const port = process.env.PORT || 8080;
 
