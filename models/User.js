@@ -66,7 +66,7 @@ const userSchema = new mongoose.Schema(
         addresses: [addressSchema],
 
         avatar: {
-            url: { type: String, required: true },
+            url: { type: String},
             alt: { type: String },
             public_id: { type: String },
         },
