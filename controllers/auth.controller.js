@@ -5,7 +5,7 @@ const {
   generateAccessToken,
   generateRefreshToken,
 } = require("../utils/generateTokens");
-const { cookieOptions } = require("../utils/cookieOptions");
+const cookieOptions = require("../utils/cookieOptions");
 
 // 🔹 Helpers
 const validateEmail = (email) => {
