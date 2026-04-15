@@ -80,15 +80,13 @@ exports.getProducts = async (req, res) => {
             status,
             category,
             role,
-            priceSort,
+            priceSort, // "high" | "low"
         } = req.query;
 
         const query = {};
 
-        // ✅ proper admin check
-        const isAdmin = admin === "true";
-
-        if (!isAdmin) {
+        // 🔐 Public vs Admin
+        if (!admin) {
             query.status = "published";
         } else if (status && status !== "all") {
             query.status = status;
@@ -99,22 +97,28 @@ exports.getProducts = async (req, res) => {
             query.name = { $regex: search, $options: "i" };
         }
 
-        // 📦 Category
+        // 📦 Category filter
         if (category && category !== "all") {
             query.category = { $in: category.split(",") };
+            // assuming field name = category (green/herbal/black)
         }
 
-        // 👤 Role
+        // 👤 Role filter (who can access / belongs to)
         if (role && role !== "all") {
             query.role = role;
+            // assuming field name = role (customer/merchant)
         }
 
         // 💰 Sorting
-        let sortOption = { createdAt: -1 };
+        let sortOption = { createdAt: -1 }; // default latest
 
-        if (priceSort === "high") sortOption = { price: -1 };
-        if (priceSort === "low") sortOption = { price: 1 };
+        if (priceSort === "high") {
+            sortOption = { price: -1 };
+        } else if (priceSort === "low") {
+            sortOption = { price: 1 };
+        }
 
+        // 📄 Pagination
         const skip = (Number(page) - 1) * Number(limit);
 
         const products = await Product.find(query)
