@@ -7,34 +7,56 @@ const {
 } = require("../utils/generateTokens");
 const { cookieOptions } = require("../utils/cookieOptions");
 
-// Validation helper
+// 🔹 Helpers
 const validateEmail = (email) => {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   return emailRegex.test(email);
 };
 
 const validatePassword = (password) => {
-  // Min 8 chars, 1 uppercase, 1 lowercase, 1 number, 1 special char
-  const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?])[A-Za-z\d!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]{8,}$/;
-  return passwordRegex.test(password);
+  return /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]).{8,}$/.test(
+    password
+  );
 };
 
 const validatePhone = (phone) => {
-  const phoneRegex = /^[0-9]{10}$/;
-  return phoneRegex.test(phone.replace(/\D/g, ""));
+  return /^[0-9]{10}$/.test(phone);
 };
 
-// ✅ REGISTER
+const getSafeUser = (user) => ({
+  _id: user._id,
+  name: user.name,
+  email: user.email,
+  phone: user.phone,
+  role: user.role,
+  avatar: user.avatar,
+  status: user.status,
+  lastLogin: user.lastLogin,
+  addresses: user.addresses,
+  wishlist: user.wishlist,
+  cart: user.cart,
+  isEmailVerified: user.isEmailVerified,
+  isPhoneVerified: user.isPhoneVerified,
+  createdAt: user.createdAt,
+  updatedAt: user.updatedAt,
+});
+
+// ================= REGISTER =================
 exports.register = async (req, res) => {
   try {
-    const { name, email, password, confirmPassword, phone } = req.body;
+    let { name, email, password, confirmPassword, phone } = req.body;
 
-    // Validate inputs
-    if (!name || !email || !password || !confirmPassword || !phone) {
+    // Normalize
+    email = email?.toLowerCase().trim();
+    name = name?.trim();
+    const cleanPhone = phone?.replace(/\D/g, "");
+
+    // Validation
+    if (!name || !email || !password || !confirmPassword || !cleanPhone) {
       return res.status(400).json({ message: "All fields are required" });
     }
 
-    if (name.trim().length < 2) {
+    if (name.length < 2) {
       return res.status(400).json({ message: "Name must be at least 2 characters" });
     }
 
@@ -44,7 +66,8 @@ exports.register = async (req, res) => {
 
     if (!validatePassword(password)) {
       return res.status(400).json({
-        message: "Password must be at least 8 characters with uppercase, lowercase, number, and special character (@$!%*?&)",
+        message:
+          "Password must be at least 8 characters and include uppercase, lowercase, number, and special character",
       });
     }
 
@@ -52,18 +75,27 @@ exports.register = async (req, res) => {
       return res.status(400).json({ message: "Passwords do not match" });
     }
 
-    if (!validatePhone(phone)) {
+    if (!validatePhone(cleanPhone)) {
       return res.status(400).json({ message: "Invalid phone number format" });
     }
 
     const existingUser = await User.findOne({ email });
-    if (existingUser)
+    if (existingUser) {
       return res.status(400).json({ message: "User already exists" });
+    }
 
-    const user = await User.create({ name, email, password, phone });
+    const user = await User.create({
+      name,
+      email,
+      password,
+      phone: cleanPhone,
+    });
 
     const accessToken = generateAccessToken(user);
     const refreshToken = generateRefreshToken(user);
+
+    // 🔥 Single session (remove old tokens)
+    await RefreshToken.deleteMany({ user: user._id });
 
     await RefreshToken.create({
       user: user._id,
@@ -82,21 +114,22 @@ exports.register = async (req, res) => {
       })
       .status(201)
       .json({
-        message: "Account created successfully!",
-        user
+        message: "Account created successfully",
+        user: getSafeUser(user),
       });
   } catch (error) {
-    console.log("Registration error:", error);
-    res.status(500).json({ message: error.message });
+    console.error("REGISTER ERROR:", error);
+    res.status(500).json({ message: "Server error" });
   }
 };
 
-// ✅ LOGIN
+// ================= LOGIN =================
 exports.login = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    let { email, password } = req.body;
 
-    // Validate inputs
+    email = email?.toLowerCase().trim();
+
     if (!email || !password) {
       return res.status(400).json({ message: "Email and password are required" });
     }
@@ -106,43 +139,36 @@ exports.login = async (req, res) => {
     }
 
     const user = await User.findOne({ email }).select("+password");
-    if (!user)
-      return res.status(400).json({ message: "Invalid credentials" });
 
-    if (user.isBlocked)
+    if (!user) {
+      return res.status(400).json({ message: "Invalid credentials" });
+    }
+
+    if (user.isBlocked) {
       return res.status(403).json({ message: "Your account has been blocked" });
+    }
 
     const isMatch = await user.comparePassword(password);
-    if (!isMatch)
+
+    if (!isMatch) {
       return res.status(400).json({ message: "Invalid credentials" });
+    }
+
+    // 🔥 Update last login
+    user.lastLogin = new Date();
+    await user.save();
 
     const accessToken = generateAccessToken(user);
     const refreshToken = generateRefreshToken(user);
+
+    // 🔥 Single session
+    await RefreshToken.deleteMany({ user: user._id });
 
     await RefreshToken.create({
       user: user._id,
       token: refreshToken,
       expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
     });
-
-    const payload = {
-      _id: user._id,
-      name: user.name,
-      email: user.email,
-      phone: user.phone,
-      role: user.role,
-      avatar: user.avatar,
-      status: user.status,
-      lastLogin: user.lastLogin,
-      passwordChangedAt: user.passwordChangedAt,
-      addresses: user.addresses,
-      wishlist: user.wishlist,
-      cart: user.cart,
-      isEmailVerified: user.isEmailVerified,
-      isPhoneVerified: user.isPhoneVerified,
-      updatedAt: user.updatedAt,
-      createdAt: user.createdAt,
-    }
 
     res
       .cookie("accessToken", accessToken, {
@@ -155,58 +181,72 @@ exports.login = async (req, res) => {
       })
       .json({
         message: "Login successful",
-        user: payload
+        user: getSafeUser(user),
       });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error("LOGIN ERROR:", error);
+    res.status(500).json({ message: "Server error" });
   }
 };
 
-// 🔄 REFRESH TOKEN (Rotation)
+// ================= REFRESH =================
 exports.refresh = async (req, res) => {
   try {
     const token = req.cookies.refreshToken;
-    if (!token)
+
+    if (!token) {
       return res.status(401).json({ message: "No refresh token" });
+    }
 
     const stored = await RefreshToken.findOne({ token });
-    if (!stored)
+
+    if (!stored) {
       return res.status(403).json({ message: "Invalid refresh token" });
+    }
 
-    jwt.verify(token, process.env.JWT_REFRESH_SECRET, async (err, decoded) => {
-      if (err) return res.status(403).json({ message: "Expired token" });
+    let decoded;
 
-      const user = await User.findById(decoded.id);
+    try {
+      decoded = jwt.verify(token, process.env.JWT_REFRESH_SECRET);
+    } catch (err) {
+      return res.status(403).json({ message: "Expired or invalid token" });
+    }
 
-      // 🔥 Token Rotation
-      await RefreshToken.deleteOne({ token });
+    const user = await User.findById(decoded.id);
 
-      const newAccessToken = generateAccessToken(user);
-      const newRefreshToken = generateRefreshToken(user);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
 
-      await RefreshToken.create({
-        user: user._id,
-        token: newRefreshToken,
-        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-      });
+    // 🔥 Rotate token
+    await RefreshToken.deleteOne({ token });
 
-      res
-        .cookie("accessToken", newAccessToken, {
-          ...cookieOptions,
-          maxAge: 15 * 60 * 1000,
-        })
-        .cookie("refreshToken", newRefreshToken, {
-          ...cookieOptions,
-          maxAge: 7 * 24 * 60 * 60 * 1000,
-        })
-        .json({ message: "Token refreshed" });
+    const newAccessToken = generateAccessToken(user);
+    const newRefreshToken = generateRefreshToken(user);
+
+    await RefreshToken.create({
+      user: user._id,
+      token: newRefreshToken,
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
     });
+
+    res
+      .cookie("accessToken", newAccessToken, {
+        ...cookieOptions,
+        maxAge: 15 * 60 * 1000,
+      })
+      .cookie("refreshToken", newRefreshToken, {
+        ...cookieOptions,
+        maxAge: 7 * 24 * 60 * 60 * 1000,
+      })
+      .json({ message: "Token refreshed" });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error("REFRESH ERROR:", error);
+    res.status(500).json({ message: "Server error" });
   }
 };
 
-// LOGOUT
+// ================= LOGOUT =================
 exports.logout = async (req, res) => {
   try {
     const token = req.cookies.refreshToken;
@@ -216,10 +256,11 @@ exports.logout = async (req, res) => {
     }
 
     res
-      .clearCookie("accessToken")
-      .clearCookie("refreshToken")
+      .clearCookie("accessToken", cookieOptions)
+      .clearCookie("refreshToken", cookieOptions)
       .json({ message: "Logged out successfully" });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.error("LOGOUT ERROR:", error);
+    res.status(500).json({ message: "Server error" });
   }
 };
